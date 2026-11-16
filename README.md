@@ -4,7 +4,7 @@ Install [peachq](https://github.com/peachq-org/peachq) in CI: a pinned release, 
 path of its `q` exported as `QCMD` and `PEACHQ_Q`.
 
 peachq is an open-source (MIT) q. Because anyone may download and run it, a GitHub-hosted runner can use it to run a
-q project's checks. For a ready-made check runner on top of this action, see
+q project's checks. For a ready-made template that uses this action, see
 [peachq-starter](https://github.com/peachq-org/peachq-starter).
 
 ## Use the action

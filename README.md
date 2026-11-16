@@ -51,43 +51,29 @@ build without saying so. That is how `0.92.20261115`, which has no release of it
 
 ## Without the action: download from peachq.org
 
-You need no action and no installer: every build is a plain download from peachq.org with a checksum beside it.
+You need no action and no installer: every build is a plain download. Releases are immutable, so the URL is the pin.
 
 ```sh
-curl -fsSL --remote-name-all https://peachq.org/file/peachq-v0.92.20261116-linux-x86_64.tar.gz{,.sha256}
-sha256sum -c peachq-v0.92.20261116-linux-x86_64.tar.gz.sha256
-tar -xzf peachq-v0.92.20261116-linux-x86_64.tar.gz      # holds q, LICENSE, NOTICE, README.md
+curl -fsSL https://peachq.org/file/peachq-v0.92.20261116-linux-x86_64.tar.gz | tar -xz    # q, LICENSE, NOTICE, README.md
 ```
 
-The files are `https://peachq.org/file/peachq-v<VERSION>-<platform>.tar.gz` (`.zip` for Windows), each with
-`<name>.sha256` beside it. The platforms are `linux-x86_64`, `linux-arm64`, `linux-x86_64-glibc`, `linux-arm64-glibc`,
-`darwin-arm64` and `windows-x86_64`. Note that the site says `darwin` where GitHub Releases say `macos`.
-
-`curl -O` saves only the URL straight after it, so `{,.sha256}` needs `--remote-name-all` (or one `-O` per URL);
-without it the `.sha256` is printed instead of saved and `sha256sum -c` fails. The same lines work against GitHub
-Releases:
+The files are `https://peachq.org/file/peachq-v<VERSION>-<platform>.tar.gz` (`.zip` for Windows). The platforms are
+`linux-x86_64`, `linux-arm64`, `linux-x86_64-glibc`, `linux-arm64-glibc`, `darwin-arm64` and `windows-x86_64`. Note
+that the site says `darwin` where GitHub Releases say `macos`. The same works against GitHub Releases:
 
 ```sh
-curl -fsSL --remote-name-all \
-  https://github.com/peachq-org/peachq/releases/download/v0.92.20261116/peachq-linux-x86_64.tar.gz{,.sha256}
-sha256sum -c peachq-linux-x86_64.tar.gz.sha256
+curl -fsSL https://github.com/peachq-org/peachq/releases/download/v0.92.20261116/peachq-linux-x86_64.tar.gz | tar -xz
 ```
-
-`.sha256` files are in `sha256sum -c` format from `0.92.20261116` on. Builds up to v0.92 are named
-`peachq-v0.92.0-…`, and their `.sha256` holds only the hash, so check them with
-`echo "$(cat f.sha256)  f" | sha256sum -c -`.
 
 **Latest.** `https://peachq.org/file/latest.json` names the newest build of each platform:
-`{version, uploaded, files: {linux: {name, bytes, sha256}, …}}`. To fetch and check the latest Linux build:
+`{version, uploaded, files: {linux: {name, bytes, sha256}, …}}`.
 
 ```sh
-curl -fsSL https://peachq.org/file/latest.json | jq -r '.files.linux | "\(.sha256)  \(.name)"' > peachq.sha256
-curl -fsSLO "https://peachq.org/file/$(cut -d' ' -f3 peachq.sha256)" && sha256sum -c peachq.sha256
+curl -fsSL "https://peachq.org/file/$(curl -fsSL https://peachq.org/file/latest.json | jq -r .files.linux.name)" | tar -xz
 ```
 
-**Provenance.** An attestation binds the archive's digest, not its URL. So `gh attestation verify <file> -R
-peachq-org/peachq` works on a peachq.org download just as on a GitHub one. `0.92.20261116` is the first immutable,
-attested release; older builds (`v0.92` and before) have no attestation.
+**Provenance.** To check where a build came from, save the archive and run `gh attestation verify <file> -R
+peachq-org/peachq` (builds from `0.92.20261116` on; it works on a peachq.org download just as on a GitHub one).
 
 ## Without the action: install.sh
 
@@ -97,9 +83,8 @@ Some organisations allow only approved actions. `install.sh` is the whole instal
 ```yaml
 - name: install peachq
   run: |
-    curl -fsSL -o install.sh https://raw.githubusercontent.com/peachq-org/setup-peachq/v1.0.0/install.sh
-    echo "<sha256 of that install.sh>  install.sh" | sha256sum -c -
-    q=$(bash install.sh --version 0.92.20261116 --dir "$RUNNER_TEMP/peachq")
+    q=$(curl -fsSL https://raw.githubusercontent.com/peachq-org/setup-peachq/v1.0.0/install.sh |
+      bash -s -- --version 0.92.20261116 --dir "$RUNNER_TEMP/peachq")
     echo "QCMD=$q" >> "$GITHUB_ENV"
 ```
 

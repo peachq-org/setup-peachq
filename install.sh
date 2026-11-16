@@ -110,6 +110,8 @@ attest() {
   local out
   if ! command -v gh > /dev/null || ! gh attestation --help > /dev/null 2>&1; then
     say "notice: gh attestation is not available here; checksum verified, build provenance not checked"
+  elif ! gh auth status > /dev/null 2>&1; then
+    say "notice: gh is not signed in (set GH_TOKEN to check build provenance); checksum verified"
   elif out=$(gh api "repos/$REPO/attestations/sha256:$1" 2>&1); then
     gh attestation verify "$2" -R "$REPO" >&2 || die "$asset ($tag) failed attestation verification"
     say "build attestation verified"

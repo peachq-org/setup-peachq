@@ -76,6 +76,13 @@ jobs:
           [ "$q" = "$RUNNER_TEMP/pq/q" ]
           ./install.sh --version 0.92.20261115 --dir "$RUNNER_TEMP/pq" 2>&1 >/dev/null | grep 'already installed'
 
+      - name: a directory that is not a peachq install is never replaced
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/mine" && touch "$RUNNER_TEMP/mine/keep"
+          if ./install.sh --version 0.92.20261115 --dir "$RUNNER_TEMP/mine"; then exit 1; fi
+          [ -f "$RUNNER_TEMP/mine/keep" ]
+
       - name: a version that does not exist is named in the error
         shell: bash
         run: |

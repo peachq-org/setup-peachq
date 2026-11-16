@@ -57,7 +57,7 @@ fetch() {
   esac
 }
 
-exact_re='^v?([0-9]+\.[0-9]+)\.([0-9]{8})$'
+exact_re='^v?([0-9]+\.[0-9]+)\.[0-9]{8}$'
 tag_re='^v?[0-9]+\.[0-9]+(\.[0-9]+)?$'
 want=
 if [ "$version" = latest ]; then
@@ -87,11 +87,21 @@ pq_version() {
 tmp=$(mktemp -d "$(dirname "$dir")/.peachq.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 
-if [ -n "$want" ] && [ -x "$dir/q" ] && grep -qx "version=$want" "$dir/.peachq-install" 2> /dev/null &&
-   [ "$(pq_version "$dir/q")" = "$want" ]; then
+installed() {
+  local f=$dir/.peachq-install b from=
+  [ -n "$want" ] && [ -x "$dir/q" ] && grep -qx "version=$want" "$f" 2> /dev/null && grep -qx "asset=$asset" "$f" ||
+    return 1
+  for b in "${bases[@]}"; do grep -qx "source=$b" "$f" && from=$b; done
+  [ -n "$from" ] && [ "$(pq_version "$dir/q")" = "$want" ]
+}
+if installed; then
   say "peachq $want already installed at $dir"
   echo "$dir/q"
   exit 0
+fi
+if [ -e "$dir" ] && [ ! -f "$dir/.peachq-install" ]; then
+  [ -d "$dir" ] && [ -z "$(ls -A "$dir")" ] ||
+    die "$dir already holds something that is not a peachq install; name a new or empty directory"
 fi
 
 sha256() { { sha256sum "$1" 2> /dev/null || shasum -a 256 "$1"; } | cut -d' ' -f1; }

@@ -1,0 +1,90 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  action:
+    name: action ${{ matrix.version }} on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        version: [0.92.20261115, v0.92, latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - id: pq
+        uses: ./
+        with:
+          version: ${{ matrix.version }}
+
+      - name: the exports agree and q reports the requested version
+        shell: bash
+        env:
+          REQUESTED: ${{ matrix.version }}
+          Q_PATH: ${{ steps.pq.outputs.q-path }}
+          Q_VERSION: ${{ steps.pq.outputs.version }}
+        run: |
+          set -x
+          [ "$QCMD" = "$Q_PATH" ] && [ "$PEACHQ_Q" = "$Q_PATH" ]
+          case $Q_PATH in /*) ;; *) exit 1 ;; esac
+          [ "$(command -v q)" != "$Q_PATH" ]
+          want=${REQUESTED#v}
+          [ "$REQUESTED" != latest ] || want=
+          case $Q_VERSION in "$want"*) ;; *) exit 1 ;; esac
+          WANT=$want "$QCMD" test/version.q < /dev/null
+
+      - name: smoke script
+        shell: bash
+        run: |
+          "$QCMD" test/smoke.q < /dev/null
+          "$QCMD" test/smoke.q -classic < /dev/null
+
+  add-to-path:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./
+        with:
+          version: 0.92.20261115
+          add-to-path: 'true'
+      - shell: bash
+        run: '[ "$(command -v q)" = "$PEACHQ_Q" ]'
+
+  install-sh:
+    name: install.sh without the action
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: installs, then reuses an exact build
+        shell: bash
+        run: |
+          q=$(./install.sh --version 0.92.20261115 --dir "$RUNNER_TEMP/pq")
+          [ "$q" = "$RUNNER_TEMP/pq/q" ]
+          ./install.sh --version 0.92.20261115 --dir "$RUNNER_TEMP/pq" 2>&1 >/dev/null | grep 'already installed'
+
+      - name: a version that does not exist is named in the error
+        shell: bash
+        run: |
+          if out=$(./install.sh --version 0.0.20000101 --dir "$RUNNER_TEMP/none" 2>&1); then exit 1; fi
+          echo "$out"
+          echo "$out" | grep -F 'peachq 0.0.20000101: no peachq-'
+
+      - name: a mirror installs, and a tampered checksum is refused
+        shell: bash
+        run: |
+          case $RUNNER_OS in Linux) asset=peachq-linux-x86_64.tar.gz ;; macOS) asset=peachq-macos-arm64.tar.gz ;; esac
+          test/mirror.sh 0.92.20261115 v0.92 "$asset"

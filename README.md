@@ -1,1 +1,91 @@
-# setup-peachq: install peachq in CI
+# setup-peachq
+
+Install [peachq](https://github.com/peachq-org/peachq) in CI: a pinned release, checksum-verified, with the absolute
+path of its `q` exported as `QCMD` and `PEACHQ_Q`.
+
+peachq is an open-source (MIT) q. Because anyone may download and run it, a GitHub-hosted runner can use it to run a
+q project's checks. For a ready-made check runner on top of this action, see
+[peachq-starter](https://github.com/peachq-org/peachq-starter).
+
+## Use the action
+
+```yaml
+- uses: peachq-org/setup-peachq@<full commit sha>   # pin by SHA, as for any third-party action
+  with:
+    version: 0.92.20261115
+- run: $QCMD tests/run.q
+```
+
+| input | | |
+|---|---|---|
+| `version` | required | An exact build such as `0.92.20261115` (recommended), a release tag such as `v0.92`, or `latest`. There is no default, so the engine changes only when a commit changes it. |
+| `dist-url` | optional | Download from your own mirror instead of GitHub Releases (see below). |
+| `add-to-path` | optional, `false` | Also put peachq on `PATH` as `q`. Off by default, so no script that runs plain `q` mistakes peachq for another q. |
+
+| output / env | |
+|---|---|
+| `q-path` output, `QCMD` and `PEACHQ_Q` env | Absolute path of the installed `q`. |
+| `version` output | The installed build, as `.pq.version` reports it. |
+
+Builds exist for Linux x86_64, Linux arm64 and macOS arm64 runners. An exact build is cached (`actions/cache`, keyed
+by version, OS, architecture and download source). A tag or `latest` can move, so it is downloaded every time.
+
+### Exact builds and release tags
+
+A version such as `0.92.20261115` names one build. The installer looks for a release tagged `v0.92.20261115` first,
+then for `v0.92`, and refuses to install unless the `q` it unpacked reports exactly `0.92.20261115`. If a release
+tag has since been rebuilt, the job fails and tells you which build the tag holds now. It never runs a different
+build without saying so.
+
+## Without the action
+
+Some organisations allow only approved actions. `install.sh` is the whole installer and needs only bash, curl, tar and
+`sha256sum` or `shasum`. Run it from a pinned commit, or copy it into your repository:
+
+```yaml
+- name: install peachq
+  run: |
+    curl -fsSL -o install.sh https://raw.githubusercontent.com/peachq-org/setup-peachq/<full commit sha>/install.sh
+    echo "<sha256 of that install.sh>  install.sh" | sha256sum -c -
+    q=$(bash install.sh --version 0.92.20261115 --dir "$RUNNER_TEMP/peachq")
+    echo "QCMD=$q" >> "$GITHUB_ENV"
+```
+
+```text
+install.sh [--version V] [--dir D]
+  V   0.92.20261115 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
+  D   install directory (default ~/.peachq/<V>/<platform>)            env PEACHQ_INSTALL_DIR
+env PEACHQ_DIST_URL   a mirror laid out as <url>/<tag>/<asset>, used instead of GitHub Releases
+env PEACHQ_PLATFORM   linux-x86_64 | linux-arm64 | macos-arm64 (default: this machine)
+```
+
+The path of `q` is the only thing it prints to stdout. Messages go to stderr.
+
+## Internal artifact stores
+
+Set `dist-url` (or `PEACHQ_DIST_URL`) to a mirror with the same layout as GitHub Releases, `<url>/<tag>/<asset>` and
+`<url>/<tag>/<asset>.sha256`. For example:
+
+```text
+https://artifacts.example.com/peachq/v0.92/peachq-linux-x86_64.tar.gz
+https://artifacts.example.com/peachq/v0.92/peachq-linux-x86_64.tar.gz.sha256
+```
+
+Copy both files of each release unchanged. With a mirror, pin a version: `latest` can only be looked up on GitHub.
+
+## Verification
+
+- **Checksum.** The `.sha256` published beside each archive must match, or nothing is installed. A missing checksum
+  file is an error.
+- **Build provenance.** When `gh` has the `attestation` command (it does on GitHub-hosted runners, and the action
+  passes it the job token), the installer asks GitHub for the archive's build attestation. If the release has one,
+  `gh attestation verify --repo peachq-org/peachq` must pass. Releases up to v0.92 were published before attestations,
+  so for those it prints a notice and relies on the checksum.
+- **The build itself.** The unpacked `q` must start and report its version before it is installed. Installs are
+  unpacked to a temporary directory and moved into place, so an interrupted install leaves nothing behind.
+
+Transient network errors are retried. A missing release names the version, the asset and every URL tried.
+
+## Licence
+
+MIT, see [LICENSE](LICENSE).

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# After the action: its exports agree, q is off PATH, and q reports the version asked for. Env: REQUESTED Q_PATH Q_VERSION
+# After the action: its exports agree, q is not this binary on PATH, and q reports the version asked for. Env: REQUESTED Q_PATH Q_VERSION
 set -euxo pipefail
 cd "$(dirname "$0")"
 [ "$QCMD" = "$Q_PATH" ] && [ "$PEACHQ_Q" = "$Q_PATH" ]

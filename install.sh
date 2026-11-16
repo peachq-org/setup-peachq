@@ -11,7 +11,7 @@ die() { say "error: $*"; exit 1; }
 usage() {
   cat >&2 <<'EOF'
 usage: install.sh [--version V] [--dir D]
-  V   0.92.20261115 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
+  V   0.92.20261116 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
   D   install directory (default ~/.peachq/<V>/<platform>)            env PEACHQ_INSTALL_DIR
 env PEACHQ_DIST_URL   download from https://peachq.org/file, or a mirror with its flat layout
                       (<url>/peachq-v<version>-<platform>.tar.gz + .sha256), instead of GitHub Releases
@@ -29,7 +29,7 @@ while [ $# -gt 0 ]; do
     *) usage; die "unknown argument: $1" ;;
   esac
 done
-[ -n "$version" ] || { usage; die "no version: pin one (e.g. --version 0.92.20261115) or say latest"; }
+[ -n "$version" ] || { usage; die "no version: pin one (e.g. --version 0.92.20261116) or say latest"; }
 
 platform() {
   case "$(uname -s)-$(uname -m)" in
@@ -88,7 +88,7 @@ elif [[ $version =~ $exact_re ]]; then
 elif [[ $version =~ $tag_re ]]; then
   urls=$(candidates "${BASH_REMATCH[1]}")
 else
-  die "version '$version' is not 0.92.20261115, v0.92 or latest"
+  die "version '$version' is not 0.92.20261116, v0.92 or latest"
 fi
 
 [ -n "$dir" ] || dir=$HOME/.peachq/$version/$plat

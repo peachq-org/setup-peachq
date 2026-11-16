@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm]
-        version: [0.92.20261115, v0.92, latest]
+        version: [0.92.20261116, 0.92.20261115, v0.92, latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -41,9 +41,28 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./
         with:
-          version: 0.92.20261115
+          version: 0.92.20261116
           add-to-path: 'true'
       - run: '[ "$(command -v q)" = "$PEACHQ_Q" ]'
+
+  classic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./
+        with:
+          version: 0.92.20261116
+          add-to-path: 'true'
+          classic: 'true'
+      - run: test/classic.sh
+      - id: alone
+        continue-on-error: true
+        uses: ./
+        with:
+          version: 0.92.20261116
+          classic: 'true'
+      - name: classic without add-to-path is refused
+        run: '[ "${{ steps.alone.outcome }}" = failure ]'
 
   peachq-org:
     name: action from peachq.org
@@ -53,11 +72,11 @@ jobs:
       - id: pq
         uses: ./
         with:
-          version: 0.92.20261115
+          version: 0.92.20261116
           dist-url: https://peachq.org/file
       - name: the build came from peachq.org
         env:
-          REQUESTED: 0.92.20261115
+          REQUESTED: 0.92.20261116
           Q_PATH: ${{ steps.pq.outputs.q-path }}
           Q_VERSION: ${{ steps.pq.outputs.version }}
         run: |
@@ -80,11 +99,14 @@ jobs:
       - id: pq
         uses: ./
         with:
-          version: 0.92.20261115
+          version: 0.92.20261116
+          add-to-path: 'true'
+          classic: 'true'
       - env:
-          REQUESTED: 0.92.20261115
+          REQUESTED: 0.92.20261116
           Q_PATH: ${{ steps.pq.outputs.q-path }}
           Q_VERSION: ${{ steps.pq.outputs.version }}
         run: test/check-install.sh
       - run: test/smoke.sh
+      - run: test/classic.sh
       - run: test/install-sh.sh

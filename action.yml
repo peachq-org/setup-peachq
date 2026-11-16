@@ -8,7 +8,7 @@ branding:
 inputs:
   version:
     description: >-
-      The peachq to install: an exact build such as 0.92.20261115 (recommended), a release tag such as v0.92,
+      The peachq to install: an exact build such as 0.92.20261116 (recommended), a release tag such as v0.92,
       or latest. Required, so a workflow never changes engine without a commit.
     required: true
   dist-url:
@@ -22,13 +22,19 @@ inputs:
       Put peachq's directory on PATH as `q`. Off by default so nothing mistakes peachq for another q.
     required: false
     default: 'false'
+  classic:
+    description: >-
+      With add-to-path, the `q` on PATH runs peachq with -classic appended to its arguments, for projects whose own
+      scripts call plain q. QCMD and PEACHQ_Q still name the real binary.
+    required: false
+    default: 'false'
 
 outputs:
   q-path:
     description: Absolute path of the installed q.
     value: ${{ steps.install.outputs.q-path }}
   version:
-    description: The installed build, as .pq.version reports it (e.g. 0.92.20261115).
+    description: The installed build, as .pq.version reports it (e.g. 0.92.20261116).
     value: ${{ steps.install.outputs.version }}
 
 runs:
@@ -39,8 +45,12 @@ runs:
       env:
         VERSION: ${{ inputs.version }}
         DIST: ${{ inputs.dist-url }}
+        ADD_TO_PATH: ${{ inputs.add-to-path }}
+        CLASSIC: ${{ inputs.classic }}
       run: |
         [ -n "$VERSION" ] || { echo "::error::setup-peachq: the version input is required"; exit 1; }
+        [ "$CLASSIC" != true ] || [ "$ADD_TO_PATH" = true ] ||
+          { echo "::error::setup-peachq: classic puts a q shim on PATH, so it needs add-to-path: true"; exit 1; }
         exact=false
         [[ $VERSION =~ ^v?[0-9]+\.[0-9]+\.[0-9]{8}$ ]] && exact=true
         src=$(printf '%s' "${DIST:-github}" | { sha256sum 2> /dev/null || shasum -a 256; } | cut -c1-12)
@@ -64,6 +74,7 @@ runs:
         PEACHQ_DIST_URL: ${{ inputs.dist-url }}
         PEACHQ_INSTALL_DIR: ${{ steps.plan.outputs.dir }}
         ADD_TO_PATH: ${{ inputs.add-to-path }}
+        CLASSIC: ${{ inputs.classic }}
         GH_TOKEN: ${{ github.token }}
       run: |
         q=$("$GITHUB_ACTION_PATH/install.sh")
@@ -71,5 +82,14 @@ runs:
         echo "q-path=$q" >> "$GITHUB_OUTPUT"
         echo "version=$version" >> "$GITHUB_OUTPUT"
         { echo "QCMD=$q"; echo "PEACHQ_Q=$q"; } >> "$GITHUB_ENV"
-        [ "$ADD_TO_PATH" != true ] || dirname "$q" >> "$GITHUB_PATH"
+        if [ "$CLASSIC" = true ]; then
+          shim=$RUNNER_TEMP/setup-peachq-classic
+          mkdir -p "$shim"
+          printf '#!/bin/sh\nexec "%s" "$@" -classic\n' "$q" > "$shim/q"
+          chmod +x "$shim/q"
+          echo "$shim" >> "$GITHUB_PATH"
+          echo "q on PATH runs peachq -classic: $shim/q"
+        elif [ "$ADD_TO_PATH" = true ]; then
+          dirname "$q" >> "$GITHUB_PATH"
+        fi
         echo "peachq $version: $q"

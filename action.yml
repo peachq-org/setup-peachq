@@ -87,7 +87,7 @@ runs:
         if [ ${#words[@]} -gt 0 ]; then
           shim=$RUNNER_TEMP/setup-peachq-args
           mkdir -p "$shim"
-          sq() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+          sq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/'\\\\''/g")"; }
           line="exec $(sq "$q") \"\$@\""
           for w in "${words[@]}"; do line+=" $(sq "$w")"; done
           printf '#!/bin/sh\n%s\n' "$line" > "$shim/q"

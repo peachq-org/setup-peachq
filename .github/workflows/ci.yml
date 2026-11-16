@@ -45,7 +45,7 @@ jobs:
           add-to-path: 'true'
       - run: '[ "$(command -v q)" = "$PEACHQ_Q" ]'
 
-  classic:
+  args:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,15 +53,15 @@ jobs:
         with:
           version: 0.92.20261116
           add-to-path: 'true'
-          classic: 'true'
-      - run: test/classic.sh
+          args: -classic it's
+      - run: test/args.sh
       - id: alone
         continue-on-error: true
         uses: ./
         with:
           version: 0.92.20261116
-          classic: 'true'
-      - name: classic without add-to-path is refused
+          args: -classic
+      - name: args without add-to-path is refused
         run: '[ "${{ steps.alone.outcome }}" = failure ]'
 
   peachq-org:
@@ -101,12 +101,12 @@ jobs:
         with:
           version: 0.92.20261116
           add-to-path: 'true'
-          classic: 'true'
+          args: -classic it's
       - env:
           REQUESTED: 0.92.20261116
           Q_PATH: ${{ steps.pq.outputs.q-path }}
           Q_VERSION: ${{ steps.pq.outputs.version }}
         run: test/check-install.sh
       - run: test/smoke.sh
-      - run: test/classic.sh
+      - run: test/args.sh
       - run: test/install-sh.sh

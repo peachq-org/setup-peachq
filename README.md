@@ -10,18 +10,20 @@ q project's checks. For a ready-made template that uses this action, see
 ## Use the action
 
 ```yaml
-- uses: peachq-org/setup-peachq@<full commit sha>   # pin by SHA, as for any third-party action
+- uses: peachq-org/setup-peachq@v1.0.0
   with:
     version: 0.92.20261116
 - run: $QCMD tests/run.q
 ```
+
+Releases are immutable, so `v1.0.0` always names the same commit; orgs that require commit pinning can use its SHA.
 
 | input | | |
 |---|---|---|
 | `version` | required | An exact build such as `0.92.20261116` (recommended), a release tag such as `v0.92`, or `latest`. There is no default, so the engine changes only when a commit changes it. |
 | `dist-url` | optional | Download from `https://peachq.org/file`, or from your own mirror of it, instead of GitHub Releases (see below). |
 | `add-to-path` | optional, `false` | Also put peachq on `PATH` as `q`. Off by default, so no script that runs plain `q` mistakes peachq for another q. |
-| `classic` | optional, `false` | With `add-to-path: true`, the `q` on `PATH` runs peachq with `-classic` (see below). |
+| `args` | optional | With `add-to-path: true`, extra arguments the `q` on `PATH` appends after the caller's, such as `-classic` (see below). |
 
 | output / env | |
 |---|---|
@@ -35,9 +37,10 @@ architecture and download source). A tag or `latest` can move, so it is download
 ### Projects whose own scripts call `q`
 
 peachq prints kdb+'s text only with `-classic`, and a script that starts `q` itself cannot pass it. With
-`add-to-path: true` and `classic: true`, the `q` on `PATH` is a two-line shim that runs peachq with the caller's
-arguments and `-classic` appended, so `q tests/run.q -p 5000` runs `peachq tests/run.q -p 5000 -classic` (the script
-must come first, so the flag goes last). `QCMD` and `PEACHQ_Q` still name the real binary.
+`add-to-path: true` and `args: -classic`, the `q` on `PATH` is a two-line shim that runs peachq with the caller's
+arguments and then `args`, so `q tests/run.q -p 5000` runs `peachq tests/run.q -p 5000 -classic` (the script must come
+first, so the extra arguments go last). `args` is split on whitespace into separate arguments, with no quoting or
+globbing, so an argument cannot contain a space. `QCMD` and `PEACHQ_Q` still name the real binary.
 
 ### Exact builds and release tags
 
@@ -89,12 +92,12 @@ attested release; older builds (`v0.92` and before) have no attestation.
 ## Without the action: install.sh
 
 Some organisations allow only approved actions. `install.sh` is the whole installer and needs only bash, curl, tar and
-`sha256sum` or `shasum`. Run it from a pinned commit, or copy it into your repository:
+`sha256sum` or `shasum`. Run it from a release, or copy it into your repository:
 
 ```yaml
 - name: install peachq
   run: |
-    curl -fsSL -o install.sh https://raw.githubusercontent.com/peachq-org/setup-peachq/<full commit sha>/install.sh
+    curl -fsSL -o install.sh https://raw.githubusercontent.com/peachq-org/setup-peachq/v1.0.0/install.sh
     echo "<sha256 of that install.sh>  install.sh" | sha256sum -c -
     q=$(bash install.sh --version 0.92.20261116 --dir "$RUNNER_TEMP/peachq")
     echo "QCMD=$q" >> "$GITHUB_ENV"

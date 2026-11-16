@@ -13,7 +13,8 @@ inputs:
     required: true
   dist-url:
     description: >-
-      A mirror laid out as <dist-url>/<tag>/<asset> (your artifact store), used instead of GitHub Releases.
+      Download from https://peachq.org/file, or from your own mirror with its flat layout
+      (<dist-url>/peachq-v<version>-<platform>.tar.gz and .sha256), instead of GitHub Releases.
     required: false
     default: ''
   add-to-path:

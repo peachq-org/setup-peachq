@@ -22,6 +22,12 @@ inputs:
       Put peachq's directory on PATH as `q` (on Windows, for bash, cmd and PowerShell alike). Off by default so nothing mistakes peachq for another q.
     required: false
     default: 'false'
+  duckdb:
+    description: >-
+      Install the larger build with DuckDB bundled beside q (s) SQL, Parquet, s3:// and Kafka, offline). Releases
+      from v0.91 have it for every platform, on GitHub Releases only.
+    required: false
+    default: 'false'
   args:
     description: >-
       With add-to-path, extra arguments the `q` on PATH appends after the caller's own, such as -classic, for
@@ -49,17 +55,19 @@ runs:
         DIST: ${{ inputs.dist-url }}
         ADD_TO_PATH: ${{ inputs.add-to-path }}
         ARGS: ${{ inputs.args }}
+        DUCKDB: ${{ inputs.duckdb }}
       run: |
         [ -n "$VERSION" ] || { echo "::error::setup-peachq: the version input is required"; exit 1; }
         [ -z "${ARGS//[[:space:]]/}" ] || [ "$ADD_TO_PATH" = true ] ||
           { echo "::error::setup-peachq: args puts a q shim on PATH, so it needs add-to-path: true"; exit 1; }
+        case $DUCKDB in true) flavour=-duckdb ;; false) flavour= ;; *) echo "::error::setup-peachq: duckdb is '$DUCKDB', not true or false"; exit 1 ;; esac
         exact=false
         [[ $VERSION =~ ^v?[0-9]+\.[0-9]+\.[0-9]{8}$ ]] && exact=true
         src=$(printf '%s' "${DIST:-github}" | { sha256sum 2> /dev/null || shasum -a 256; } | cut -c1-12)
         {
           echo "exact=$exact"
-          echo "dir=$RUNNER_TOOL_CACHE/peachq/$VERSION/$RUNNER_OS-$RUNNER_ARCH"
-          echo "key=setup-peachq-1-$VERSION-$RUNNER_OS-$RUNNER_ARCH-$src"
+          echo "dir=$RUNNER_TOOL_CACHE/peachq/$VERSION/$RUNNER_OS-$RUNNER_ARCH$flavour"
+          echo "key=setup-peachq-1-$VERSION-$RUNNER_OS-$RUNNER_ARCH$flavour-$src"
         } >> "$GITHUB_OUTPUT"
 
     # Only an exact build is cached: a tag or latest can move, so it is always fetched afresh.
@@ -75,6 +83,7 @@ runs:
         PEACHQ_VERSION: ${{ inputs.version }}
         PEACHQ_DIST_URL: ${{ inputs.dist-url }}
         PEACHQ_INSTALL_DIR: ${{ steps.plan.outputs.dir }}
+        PEACHQ_DUCKDB: ${{ inputs.duckdb }}
         ADD_TO_PATH: ${{ inputs.add-to-path }}
         ARGS: ${{ inputs.args }}
         GH_TOKEN: ${{ github.token }}

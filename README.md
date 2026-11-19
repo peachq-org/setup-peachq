@@ -10,19 +10,20 @@ q project's checks. For a ready-made template that uses this action, see
 ## Use the action
 
 ```yaml
-- uses: peachq-org/setup-peachq@v1.1.0
+- uses: peachq-org/setup-peachq@v1.2.0
   with:
     version: 0.92.20261116
 - run: $QCMD tests/run.q
 ```
 
-Releases are immutable, so `v1.1.0` always names the same commit; orgs that require commit pinning can use its SHA.
+Releases are immutable, so `v1.2.0` always names the same commit; orgs that require commit pinning can use its SHA.
 
 | input | | |
 |---|---|---|
 | `version` | required | An exact build such as `0.92.20261116` (recommended), a release tag such as `v0.92`, or `latest`. There is no default, so the engine changes only when a commit changes it. |
 | `dist-url` | optional | Download from `https://peachq.org/file`, or from your own mirror of it, instead of GitHub Releases (see below). |
 | `add-to-path` | optional, `false` | Also put peachq on `PATH` as `q`. Off by default, so no script that runs plain `q` mistakes peachq for another q. |
+| `duckdb` | optional, `false` | Install the build with DuckDB bundled, for `s)` SQL, Parquet, `s3://` and Kafka (see below). |
 | `args` | optional | With `add-to-path: true`, extra arguments the `q` on `PATH` appends after the caller's, such as `-classic` (see below). |
 
 | output / env | |
@@ -41,6 +42,28 @@ peachq prints kdb+'s text only with `-classic`, and a script that starts `q` its
 arguments and then `args`, so `q tests/run.q -p 5000` runs `peachq tests/run.q -p 5000 -classic` (the script must come
 first, so the extra arguments go last). `args` is split on whitespace into separate arguments, with no quoting or
 globbing, so an argument cannot contain a space. `QCMD` and `PEACHQ_Q` still name the real binary.
+
+### DuckDB
+
+`duckdb: true` installs `peachq-<platform>-duckdb`, about 80 MB instead of 4 MB. It holds `q` with the DuckDB library,
+its `httpfs`, `aws` and `ducklake` extensions and librdkafka beside it, so `s)` SQL, Parquet, `s3://` and `.kafka` work
+with no network and nothing else to install. It exists for every platform the action supports (Linux x86_64 and
+arm64, macOS arm64, Windows x86_64) from v0.91 on. On Linux it needs glibc 2.28 or later, which every GitHub-hosted
+runner has.
+
+```yaml
+- uses: peachq-org/setup-peachq@v1.2.0
+  with:
+    version: 0.92.20261118
+    duckdb: true
+- run: $QCMD tests/run.q
+```
+
+The DuckDB build is cached separately from the standard one, so a job can install both. It comes from GitHub
+Releases only: peachq.org publishes it under one unversioned name with no checksum, which cannot be pinned, so
+`duckdb: true` with `dist-url: https://peachq.org/file` fails and says so. A mirror can carry it as
+`peachq-v<version>-<platform>-duckdb.<ext>`, with the site's platform names (`linux-x86_64-glibc`, `darwin-arm64`,
+and so on). An unpacked archive that has no DuckDB library is refused.
 
 ### Windows
 
@@ -91,15 +114,16 @@ Windows) and `sha256sum` or `shasum`. On Windows it runs in Git Bash, which has 
 ```yaml
 - name: install peachq
   run: |
-    q=$(curl -fsSL https://raw.githubusercontent.com/peachq-org/setup-peachq/v1.1.0/install.sh |
+    q=$(curl -fsSL https://raw.githubusercontent.com/peachq-org/setup-peachq/v1.2.0/install.sh |
       bash -s -- --version 0.92.20261116 --dir "$RUNNER_TEMP/peachq")
     echo "QCMD=$q" >> "$GITHUB_ENV"
 ```
 
 ```text
-install.sh [--version V] [--dir D]
+install.sh [--version V] [--dir D] [--duckdb]
   V   0.92.20261116 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
-  D   install directory (default ~/.peachq/<V>/<platform>)            env PEACHQ_INSTALL_DIR
+  D   install directory (default ~/.peachq/<V>/<platform>[-duckdb])   env PEACHQ_INSTALL_DIR
+  --duckdb  the build with DuckDB bundled (s) SQL, Parquet, s3://)    env PEACHQ_DUCKDB=true
 env PEACHQ_DIST_URL   download from https://peachq.org/file, or a mirror with its flat layout
                       (<url>/peachq-v<version>-<platform>.tar.gz or .zip, + .sha256), instead of GitHub Releases
 env PEACHQ_PLATFORM   linux-x86_64 | linux-arm64 | macos-arm64 | windows-x86_64 (default: this machine)

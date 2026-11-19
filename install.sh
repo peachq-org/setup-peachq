@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install a peachq release and print the absolute path of its q. Usage: install.sh [--version V] [--dir D]
+# Install a peachq release and print the absolute path of its q. Usage: install.sh [--version V] [--dir D] [--duckdb]
 set -euo pipefail
 
 REPO=peachq-org/peachq
@@ -10,9 +10,10 @@ die() { say "error: $*"; exit 1; }
 
 usage() {
   cat >&2 <<'EOF'
-usage: install.sh [--version V] [--dir D]
+usage: install.sh [--version V] [--dir D] [--duckdb]
   V   0.92.20261116 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
-  D   install directory (default ~/.peachq/<V>/<platform>)            env PEACHQ_INSTALL_DIR
+  D   install directory (default ~/.peachq/<V>/<platform>[-duckdb])   env PEACHQ_INSTALL_DIR
+  --duckdb  the build with DuckDB bundled (s) SQL, Parquet, s3://)    env PEACHQ_DUCKDB=true
 env PEACHQ_DIST_URL   download from https://peachq.org/file, or a mirror with its flat layout
                       (<url>/peachq-v<version>-<platform>.tar.gz or .zip, + .sha256), instead of GitHub Releases
 env PEACHQ_PLATFORM   linux-x86_64 | linux-arm64 | macos-arm64 | windows-x86_64 (default: this machine)
@@ -21,14 +22,17 @@ EOF
 
 version=${PEACHQ_VERSION:-}
 dir=${PEACHQ_INSTALL_DIR:-}
+duckdb=${PEACHQ_DUCKDB:-false}
 while [ $# -gt 0 ]; do
   case $1 in
     --version) [ $# -ge 2 ] || die "--version needs a value"; version=$2; shift 2 ;;
     --dir) [ $# -ge 2 ] || die "--dir needs a value"; dir=$2; shift 2 ;;
+    --duckdb) duckdb=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage; die "unknown argument: $1" ;;
   esac
 done
+case $duckdb in true|false) ;; *) die "PEACHQ_DUCKDB is '$duckdb', not true or false" ;; esac
 [ -n "$version" ] || { usage; die "no version: pin one (e.g. --version 0.92.20261116) or say latest"; }
 
 platform() {
@@ -46,7 +50,13 @@ case $plat in
   windows-x86_64) ext=zip exe=q.exe ;;
   *) die "unknown platform $plat" ;;
 esac
-asset=peachq-$plat.$ext
+flavour=
+[ "$duckdb" = false ] || flavour=-duckdb
+asset=peachq-$plat$flavour.$ext
+# peachq.org's names: darwin for macos, and its Linux DuckDB builds say -glibc, as GitHub's do not
+site=${plat/macos/darwin}
+[ "$duckdb" = false ] || [[ $plat != linux-* ]] || site+=-glibc
+site+=$flavour
 base=${PEACHQ_DIST_URL:-$GITHUB_BASE}
 base=${base%/}
 
@@ -69,8 +79,8 @@ candidates() {
   local r
   for r; do
     if [ "$base" = "$GITHUB_BASE" ]; then echo "$base/v$r/$asset"
-    elif [[ $r =~ ^[0-9]+\.[0-9]+$ ]]; then echo "$base/peachq-v$r.0-${plat/macos/darwin}.$ext"
-    else echo "$base/peachq-v$r-${plat/macos/darwin}.$ext"
+    elif [[ $r =~ ^[0-9]+\.[0-9]+$ ]]; then echo "$base/peachq-v$r.0-$site.$ext"
+    else echo "$base/peachq-v$r-$site.$ext"
     fi
   done
 }
@@ -84,8 +94,8 @@ if [ "$version" = latest ] && [ "$base" = "$GITHUB_BASE" ]; then
   [[ ${url##*/} =~ $tag_re ]] || die "latest resolved to an unexpected tag: ${url##*/}"
   urls=$(candidates "${BASH_REMATCH[1]}")
 elif [ "$version" = latest ]; then
-  name=$(curl_ -f "$base/latest.json" | grep -o "\"peachq-v[^\"]*-${plat/macos/darwin}\.${ext/./\\.}\"" | tr -d '"') ||
-    die "$base/latest.json names no $plat build"
+  name=$(curl_ -f "$base/latest.json" | grep -o "\"peachq-v[^\"]*-$site\.${ext/./\\.}\"" | tr -d '"') ||
+    die "$base/latest.json names no versioned $site build"
   urls=$base/$name
 elif [[ $version =~ $exact_re ]]; then
   want=${version#v}
@@ -96,7 +106,7 @@ else
   die "version '$version' is not 0.92.20261116, v0.92 or latest"
 fi
 
-[ -n "$dir" ] || dir=$HOME/.peachq/$version/$plat
+[ -n "$dir" ] || dir=$HOME/.peachq/$version/$plat$flavour
 mkdir -p "$(dirname "$dir")"
 dir=$(cd "$(dirname "$dir")" && pwd)/$(basename "$dir")
 
@@ -112,6 +122,7 @@ trap 'rm -rf "$tmp"' EXIT
 installed() {
   local f=$dir/.peachq-install
   [ -n "$want" ] && [ -x "$dir/$exe" ] && grep -qx "version=$want" "$f" 2> /dev/null && grep -qx "platform=$plat" "$f" &&
+    grep -qx "duckdb=$duckdb" "$f" &&
     grep -qx "source=$base" "$f" && [ "$(pq_version "$dir/$exe")" = "$want" ]
 }
 if installed; then
@@ -146,7 +157,9 @@ from=
 for u in $urls; do
   if fetch "$u" "$tmp/peachq.$ext"; then from=$u; break; fi
 done
-[ -n "$from" ] || die "peachq $version: no $plat build at $(printf '%s ' $urls)"
+hint=
+[ -z "$flavour" ] || [ "$base" = "$GITHUB_BASE" ] || hint="; peachq.org keeps no pinned DuckDB builds, so leave dist-url unset for GitHub Releases"
+[ -n "$from" ] || die "peachq $version: no $plat$flavour build at $(printf '%s ' $urls)$hint"
 fetch "$from.sha256" "$tmp/peachq.$ext.sha256" || die "$from.sha256 is missing; refusing an unverified download"
 
 sum=$(sha256 "$tmp/peachq.$ext")
@@ -159,11 +172,12 @@ attest "$sum" "$tmp/peachq.$ext"
 mkdir "$tmp/peachq"
 if [ "$ext" = zip ]; then unzip -q "$tmp/peachq.zip" -d "$tmp/peachq"; else tar -xzf "$tmp/peachq.$ext" -C "$tmp/peachq"; fi
 [ -x "$tmp/peachq/$exe" ] || die "$from holds no $exe"
+[ "$duckdb" = false ] || ls "$tmp/peachq" | grep -Eqx '(lib)?duckdb\.(so|dylib|dll)' || die "$from holds no DuckDB library"
 got=$(pq_version "$tmp/peachq/$exe") || got=
 [ -n "$got" ] || die "the q in $from did not start"
 [ -z "$want" ] || [ "$got" = "$want" ] ||
   die "asked for peachq $want but $from holds $got; pin $got, or install $want from a mirror that keeps it"
-printf 'version=%s\nplatform=%s\nsource=%s\nfrom=%s\nsha256=%s\n' "$got" "$plat" "$base" "$from" "$sum" \
+printf 'version=%s\nplatform=%s\nduckdb=%s\nsource=%s\nfrom=%s\nsha256=%s\n' "$got" "$plat" "$duckdb" "$base" "$from" "$sum" \
   > "$tmp/peachq/.peachq-install"
 
 rm -rf "$dir"

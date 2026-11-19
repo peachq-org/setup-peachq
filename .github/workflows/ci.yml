@@ -68,6 +68,48 @@ jobs:
       - name: args without add-to-path is refused
         run: '[ "${{ steps.alone.outcome }}" = failure ]'
 
+  duckdb:
+    name: duckdb on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: std
+        uses: ./
+        with:
+          version: 0.92.20261118
+      - id: pq
+        uses: ./
+        with:
+          version: 0.92.20261118
+          duckdb: 'true'
+      - name: the DuckDB build installs beside the standard one, not over it
+        env:
+          REQUESTED: 0.92.20261118
+          STD: ${{ steps.std.outputs.q-path }}
+          Q_PATH: ${{ steps.pq.outputs.q-path }}
+          Q_VERSION: ${{ steps.pq.outputs.version }}
+        run: |
+          test/check-install.sh
+          [ "$STD" != "$Q_PATH" ]
+          unix() { cygpath -u "$1" 2> /dev/null || printf '%s' "$1"; }
+          grep -x duckdb=true "$(dirname "$(unix "$Q_PATH")")/.peachq-install"
+          grep -x duckdb=false "$(dirname "$(unix "$STD")")/.peachq-install"
+      - run: test/smoke.sh
+      - run: '"$QCMD" test/duckdb.q < /dev/null'
+      - id: site
+        continue-on-error: true
+        uses: ./
+        with:
+          version: 0.92.20261118
+          duckdb: 'true'
+          dist-url: https://peachq.org/file
+      - name: peachq.org has no pinned DuckDB build, and says so
+        run: '[ "${{ steps.site.outcome }}" = failure ]'
+
   peachq-org:
     name: action from peachq.org
     runs-on: ubuntu-latest
@@ -148,3 +190,8 @@ jobs:
       - run: test/smoke.sh
       - run: test/args.sh
       - run: test/install-sh.sh
+      - uses: ./
+        with:
+          version: 0.92.20261118
+          duckdb: 'true'
+      - run: '"$QCMD" test/duckdb.q < /dev/null'

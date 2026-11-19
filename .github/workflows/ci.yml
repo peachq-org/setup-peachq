@@ -12,13 +12,17 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   action:
     name: action ${{ matrix.version }} on ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest]
         version: [0.92.20261116, 0.92.20261115, v0.92, latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -89,6 +93,40 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: test/install-sh.sh
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: pq
+        uses: ./
+        with:
+          version: 0.92.20261118
+          add-to-path: 'true'
+          args: -classic it's
+      - env:
+          REQUESTED: 0.92.20261118
+          Q_PATH: ${{ steps.pq.outputs.q-path }}
+          Q_VERSION: ${{ steps.pq.outputs.version }}
+        run: test/check-install.sh
+      - run: test/smoke.sh
+      - run: test/args.sh
+      - run: test/install-sh.sh
+      - name: QCMD and the q shim from PowerShell
+        shell: pwsh
+        run: |
+          & $env:QCMD -e 0; if ($LASTEXITCODE) { exit 1 }
+          & $env:QCMD test/smoke.q; if ($LASTEXITCODE) { exit 1 }
+          $out = (q test/args.q xx -y) -join '|'
+          if ($out -ne '"xx"|"-y"|"it''s"|a|-|1|2') { "q shim printed: $out"; exit 1 }
+      - name: QCMD and the q shim from cmd
+        shell: cmd
+        run: |
+          "%QCMD%" -e 0 || exit /b 1
+          call q test\smoke.q || exit /b 1
+      - name: a JVM launches QCMD
+        working-directory: test
+        run: java Launch.java
 
   # The one macOS job: nightly, on demand and on release tags, not on every pull request.
   macos:

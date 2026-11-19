@@ -30,8 +30,8 @@ Releases are immutable, so `v1.0.0` always names the same commit; orgs that requ
 | `q-path` output, `QCMD` and `PEACHQ_Q` env | Absolute path of the installed `q`. |
 | `version` output | The installed build, as `.pq.version` reports it. |
 
-**Linux by default.** Run your checks on `ubuntu-latest`. Add `macos-latest` if you ship on Mac. Builds exist for Linux
-x86_64, Linux arm64 and macOS arm64 runners. An exact build is cached (`actions/cache`, keyed by version, OS,
+**Linux by default.** Run your checks on `ubuntu-latest`. Add `macos-latest` or `windows-latest` if you ship there.
+Builds exist for Linux x86_64, Linux arm64, macOS arm64 and Windows x86_64 runners. An exact build is cached (`actions/cache`, keyed by version, OS,
 architecture and download source). A tag or `latest` can move, so it is downloaded every time.
 
 ### Projects whose own scripts call `q`
@@ -41,6 +41,14 @@ peachq prints kdb+'s text only with `-classic`, and a script that starts `q` its
 arguments and then `args`, so `q tests/run.q -p 5000` runs `peachq tests/run.q -p 5000 -classic` (the script must come
 first, so the extra arguments go last). `args` is split on whitespace into separate arguments, with no quoting or
 globbing, so an argument cannot contain a space. `QCMD` and `PEACHQ_Q` still name the real binary.
+
+### Windows
+
+On `windows-latest`, `QCMD`, `PEACHQ_Q` and `q-path` are the Windows path of `q.exe`, such as
+`C:\hostedtoolcache\windows\peachq\…\q.exe`. That path launches from bash (`"$QCMD"`), PowerShell (`& $env:QCMD`), cmd
+(`"%QCMD%"`) and a JVM (`new ProcessBuilder(System.getenv("QCMD"), …)`). With `add-to-path: true`, plain `q` works in
+all three shells. With `args`, the shim is `q` for bash and `q.cmd` for cmd and PowerShell. A cmd script must run it as
+`call q …`, as with any `.cmd`. On Windows an `args` word cannot contain a double quote.
 
 ### Exact builds and release tags
 
@@ -77,8 +85,8 @@ peachq-org/peachq` (builds from `0.92.20261116` on; it works on a peachq.org dow
 
 ## Without the action: install.sh
 
-Some organisations allow only approved actions. `install.sh` is the whole installer and needs only bash, curl, tar and
-`sha256sum` or `shasum`. Run it from a release, or copy it into your repository:
+Some organisations allow only approved actions. `install.sh` is the whole installer and needs only bash, curl, tar (unzip on
+Windows) and `sha256sum` or `shasum`. On Windows it runs in Git Bash, which has all of them. Run it from a release, or copy it into your repository:
 
 ```yaml
 - name: install peachq
@@ -93,11 +101,11 @@ install.sh [--version V] [--dir D]
   V   0.92.20261116 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
   D   install directory (default ~/.peachq/<V>/<platform>)            env PEACHQ_INSTALL_DIR
 env PEACHQ_DIST_URL   download from https://peachq.org/file, or a mirror with its flat layout
-                      (<url>/peachq-v<version>-<platform>.tar.gz + .sha256), instead of GitHub Releases
-env PEACHQ_PLATFORM   linux-x86_64 | linux-arm64 | macos-arm64 (default: this machine)
+                      (<url>/peachq-v<version>-<platform>.tar.gz or .zip, + .sha256), instead of GitHub Releases
+env PEACHQ_PLATFORM   linux-x86_64 | linux-arm64 | macos-arm64 | windows-x86_64 (default: this machine)
 ```
 
-The path of `q` is the only thing it prints to stdout. Messages go to stderr.
+The path of `q` (`q.exe` on Windows, as an MSYS path such as `/c/…`) is the only thing it prints to stdout. Messages go to stderr.
 
 ## Sources: GitHub Releases, peachq.org, your own mirror
 

@@ -3,6 +3,6 @@
 set -euxo pipefail
 cd "$(dirname "$0")"
 [ "$(command -v q)" != "$PEACHQ_Q" ] && [ "$QCMD" = "$PEACHQ_Q" ]
-diff <(printf '%s\n' '"xx"' '"-y"' "\"it's\"" a - 1 2) <(q args.q xx -y < /dev/null)
+diff <(printf '%s\n' '"xx"' '"-y"' "\"it's\"" a - 1 2) <(: | q args.q xx -y | tr -d '\r')
 "$QCMD" args.q < /dev/null | grep -F '| a'
-echo 'show ([] a:1 2)' | q | grep -x -- -
+echo 'show ([] a:1 2)' | q | tr -d '\r' | grep -x -- -

@@ -14,8 +14,8 @@ usage: install.sh [--version V] [--dir D]
   V   0.92.20261116 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
   D   install directory (default ~/.peachq/<V>/<platform>)            env PEACHQ_INSTALL_DIR
 env PEACHQ_DIST_URL   download from https://peachq.org/file, or a mirror with its flat layout
-                      (<url>/peachq-v<version>-<platform>.tar.gz + .sha256), instead of GitHub Releases
-env PEACHQ_PLATFORM   linux-x86_64 | linux-arm64 | macos-arm64 (default: this machine)
+                      (<url>/peachq-v<version>-<platform>.tar.gz or .zip, + .sha256), instead of GitHub Releases
+env PEACHQ_PLATFORM   linux-x86_64 | linux-arm64 | macos-arm64 | windows-x86_64 (default: this machine)
 EOF
 }
 
@@ -36,12 +36,17 @@ platform() {
     Linux-x86_64|Linux-amd64) echo linux-x86_64 ;;
     Linux-aarch64|Linux-arm64) echo linux-arm64 ;;
     Darwin-arm64) echo macos-arm64 ;;
-    *) die "no peachq build for $(uname -s) $(uname -m); builds exist for linux-x86_64, linux-arm64, macos-arm64" ;;
+    MINGW*-x86_64|MSYS*-x86_64|CYGWIN*-x86_64) echo windows-x86_64 ;;
+    *) die "no peachq build for $(uname -s) $(uname -m); builds exist for linux-x86_64, linux-arm64, macos-arm64, windows-x86_64" ;;
   esac
 }
 plat=${PEACHQ_PLATFORM:-$(platform)}
-case $plat in linux-x86_64|linux-arm64|macos-arm64) ;; *) die "unknown platform $plat" ;; esac
-asset=peachq-$plat.tar.gz
+case $plat in
+  linux-x86_64|linux-arm64|macos-arm64) ext=tar.gz exe=q ;;
+  windows-x86_64) ext=zip exe=q.exe ;;
+  *) die "unknown platform $plat" ;;
+esac
+asset=peachq-$plat.$ext
 base=${PEACHQ_DIST_URL:-$GITHUB_BASE}
 base=${base%/}
 
@@ -64,8 +69,8 @@ candidates() {
   local r
   for r; do
     if [ "$base" = "$GITHUB_BASE" ]; then echo "$base/v$r/$asset"
-    elif [[ $r =~ ^[0-9]+\.[0-9]+$ ]]; then echo "$base/peachq-v$r.0-${plat/macos/darwin}.tar.gz"
-    else echo "$base/peachq-v$r-${plat/macos/darwin}.tar.gz"
+    elif [[ $r =~ ^[0-9]+\.[0-9]+$ ]]; then echo "$base/peachq-v$r.0-${plat/macos/darwin}.$ext"
+    else echo "$base/peachq-v$r-${plat/macos/darwin}.$ext"
     fi
   done
 }
@@ -79,7 +84,7 @@ if [ "$version" = latest ] && [ "$base" = "$GITHUB_BASE" ]; then
   [[ ${url##*/} =~ $tag_re ]] || die "latest resolved to an unexpected tag: ${url##*/}"
   urls=$(candidates "${BASH_REMATCH[1]}")
 elif [ "$version" = latest ]; then
-  name=$(curl_ -f "$base/latest.json" | grep -o "\"peachq-v[^\"]*-${plat/macos/darwin}\.tar\.gz\"" | tr -d '"') ||
+  name=$(curl_ -f "$base/latest.json" | grep -o "\"peachq-v[^\"]*-${plat/macos/darwin}\.${ext/./\\.}\"" | tr -d '"') ||
     die "$base/latest.json names no $plat build"
   urls=$base/$name
 elif [[ $version =~ $exact_re ]]; then
@@ -97,7 +102,8 @@ dir=$(cd "$(dirname "$dir")" && pwd)/$(basename "$dir")
 
 pq_version() {
   printf '%s\n' '-1 .pq.version;' 'exit 0' > "$tmp/version.q"
-  "$1" "$tmp/version.q" < /dev/null 2> /dev/null | head -1
+  # Not < /dev/null: Windows q takes NUL for a console and prints its banner first.
+  : | "$1" "$tmp/version.q" 2> /dev/null | tr -d '\r' | head -1
 }
 
 tmp=$(mktemp -d "$(dirname "$dir")/.peachq.XXXXXX")
@@ -105,12 +111,12 @@ trap 'rm -rf "$tmp"' EXIT
 
 installed() {
   local f=$dir/.peachq-install
-  [ -n "$want" ] && [ -x "$dir/q" ] && grep -qx "version=$want" "$f" 2> /dev/null && grep -qx "platform=$plat" "$f" &&
-    grep -qx "source=$base" "$f" && [ "$(pq_version "$dir/q")" = "$want" ]
+  [ -n "$want" ] && [ -x "$dir/$exe" ] && grep -qx "version=$want" "$f" 2> /dev/null && grep -qx "platform=$plat" "$f" &&
+    grep -qx "source=$base" "$f" && [ "$(pq_version "$dir/$exe")" = "$want" ]
 }
 if installed; then
   say "peachq $want already installed at $dir"
-  echo "$dir/q"
+  echo "$dir/$exe"
   exit 0
 fi
 if [ -e "$dir" ] && [ ! -f "$dir/.peachq-install" ]; then
@@ -138,22 +144,22 @@ attest() {
 
 from=
 for u in $urls; do
-  if fetch "$u" "$tmp/peachq.tar.gz"; then from=$u; break; fi
+  if fetch "$u" "$tmp/peachq.$ext"; then from=$u; break; fi
 done
 [ -n "$from" ] || die "peachq $version: no $plat build at $(printf '%s ' $urls)"
-fetch "$from.sha256" "$tmp/peachq.tar.gz.sha256" || die "$from.sha256 is missing; refusing an unverified download"
+fetch "$from.sha256" "$tmp/peachq.$ext.sha256" || die "$from.sha256 is missing; refusing an unverified download"
 
-sum=$(sha256 "$tmp/peachq.tar.gz")
-expected=$(cut -d' ' -f1 < "$tmp/peachq.tar.gz.sha256")
+sum=$(sha256 "$tmp/peachq.$ext")
+expected=$(cut -d' ' -f1 < "$tmp/peachq.$ext.sha256")
 [[ $expected =~ ^[0-9a-f]{64}$ ]] || die "$from.sha256 holds no sha256"
 [ "$sum" = "$expected" ] || die "checksum mismatch for $from: got $sum, its .sha256 says $expected"
 say "checksum verified: $from $sum"
-attest "$sum" "$tmp/peachq.tar.gz"
+attest "$sum" "$tmp/peachq.$ext"
 
 mkdir "$tmp/peachq"
-tar -xzf "$tmp/peachq.tar.gz" -C "$tmp/peachq"
-[ -x "$tmp/peachq/q" ] || die "$from holds no q"
-got=$(pq_version "$tmp/peachq/q")
+if [ "$ext" = zip ]; then unzip -q "$tmp/peachq.zip" -d "$tmp/peachq"; else tar -xzf "$tmp/peachq.$ext" -C "$tmp/peachq"; fi
+[ -x "$tmp/peachq/$exe" ] || die "$from holds no $exe"
+got=$(pq_version "$tmp/peachq/$exe") || got=
 [ -n "$got" ] || die "the q in $from did not start"
 [ -z "$want" ] || [ "$got" = "$want" ] ||
   die "asked for peachq $want but $from holds $got; pin $got, or install $want from a mirror that keeps it"
@@ -163,4 +169,4 @@ printf 'version=%s\nplatform=%s\nsource=%s\nfrom=%s\nsha256=%s\n' "$got" "$plat"
 rm -rf "$dir"
 mv "$tmp/peachq" "$dir"
 say "peachq $got installed at $dir"
-echo "$dir/q"
+echo "$dir/$exe"

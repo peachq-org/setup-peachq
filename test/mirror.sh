@@ -4,13 +4,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 version=$1 tag=$2 plat=$3
-name=peachq-v${tag#v}.0-${plat/macos/darwin}.tar.gz
+ext=tar.gz
+[ "$plat" != windows-x86_64 ] || ext=zip
+name=peachq-v${tag#v}.0-${plat/macos/darwin}.$ext
 work=$(mktemp -d)
 trap 'kill "$server" 2> /dev/null; rm -rf "$work"' EXIT
 
 mkdir -p "$work/good" "$work/bad"
-curl -fsSL --retry 5 -o "$work/good/$name" "https://github.com/peachq-org/peachq/releases/download/$tag/peachq-$plat.tar.gz"
-curl -fsSL --retry 5 "https://github.com/peachq-org/peachq/releases/download/$tag/peachq-$plat.tar.gz.sha256" |
+curl -fsSL --retry 5 -o "$work/good/$name" "https://github.com/peachq-org/peachq/releases/download/$tag/peachq-$plat.$ext"
+curl -fsSL --retry 5 "https://github.com/peachq-org/peachq/releases/download/$tag/peachq-$plat.$ext.sha256" |
   cut -d' ' -f1 > "$work/good/$name.sha256"
 cp "$work/good/$name" "$work/bad/"
 printf '%064d  %s\n' 0 "$name" > "$work/bad/$name.sha256"

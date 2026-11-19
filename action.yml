@@ -19,20 +19,21 @@ inputs:
     default: ''
   add-to-path:
     description: >-
-      Put peachq's directory on PATH as `q`. Off by default so nothing mistakes peachq for another q.
+      Put peachq's directory on PATH as `q` (on Windows, for bash, cmd and PowerShell alike). Off by default so nothing mistakes peachq for another q.
     required: false
     default: 'false'
   args:
     description: >-
       With add-to-path, extra arguments the `q` on PATH appends after the caller's own, such as -classic, for
-      projects whose own scripts call plain q. Split on whitespace; no quoting or globbing. QCMD and PEACHQ_Q still
+      projects whose own scripts call plain q. Split on whitespace; no quoting or globbing. On Windows a
+      word cannot contain a double quote. QCMD and PEACHQ_Q still
       name the real binary.
     required: false
     default: ''
 
 outputs:
   q-path:
-    description: Absolute path of the installed q.
+    description: Absolute path of the installed q (on Windows, q.exe as a C:\ path).
     value: ${{ steps.install.outputs.q-path }}
   version:
     description: The installed build, as .pq.version reports it (e.g. 0.92.20261116).
@@ -79,22 +80,33 @@ runs:
         GH_TOKEN: ${{ github.token }}
       run: |
         q=$("$GITHUB_ACTION_PATH/install.sh")
-        version=$(sed -n 's/^version=//p' "$(dirname "$q")/.peachq-install")
+        dir=$(dirname "$q")
+        version=$(sed -n 's/^version=//p' "$dir/.peachq-install")
+        shim=$RUNNER_TEMP/setup-peachq-args
+        # Native Windows processes (cmd, PowerShell, a JVM) cannot launch an MSYS path such as /c/...
+        if [ "$RUNNER_OS" = Windows ]; then q=$(cygpath -w "$q"); dir=$(cygpath -w "$dir"); shim=$(cygpath -w "$shim"); fi
         echo "q-path=$q" >> "$GITHUB_OUTPUT"
         echo "version=$version" >> "$GITHUB_OUTPUT"
         { echo "QCMD=$q"; echo "PEACHQ_Q=$q"; } >> "$GITHUB_ENV"
         read -ra words -d "" <<< "$ARGS" || true
         if [ ${#words[@]} -gt 0 ]; then
-          shim=$RUNNER_TEMP/setup-peachq-args
           mkdir -p "$shim"
           sq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/'\\\\''/g")"; }
           line="exec $(sq "$q") \"\$@\""
           for w in "${words[@]}"; do line+=" $(sq "$w")"; done
           printf '#!/bin/sh\n%s\n' "$line" > "$shim/q"
           chmod +x "$shim/q"
+          if [ "$RUNNER_OS" = Windows ]; then
+            line="@\"$q\" %*"
+            for w in "${words[@]}"; do
+              case $w in *'"'*) echo "::error::setup-peachq: on Windows an args word cannot contain a double quote: $w"; exit 1 ;; esac
+              line+=" \"${w//%/%%}\""
+            done
+            printf '%s\r\n' "$line" '@exit /b %ERRORLEVEL%' > "$shim/q.cmd"
+          fi
           echo "$shim" >> "$GITHUB_PATH"
           echo "q on PATH appends ${words[*]}: $shim/q"
         elif [ "$ADD_TO_PATH" = true ]; then
-          dirname "$q" >> "$GITHUB_PATH"
+          echo "$dir" >> "$GITHUB_PATH"
         fi
         echo "peachq $version: $q"

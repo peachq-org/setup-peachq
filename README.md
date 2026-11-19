@@ -10,13 +10,13 @@ q project's checks. For a ready-made template that uses this action, see
 ## Use the action
 
 ```yaml
-- uses: peachq-org/setup-peachq@v1.0.0
+- uses: peachq-org/setup-peachq@v1.1.0
   with:
     version: 0.92.20261116
 - run: $QCMD tests/run.q
 ```
 
-Releases are immutable, so `v1.0.0` always names the same commit; orgs that require commit pinning can use its SHA.
+Releases are immutable, so `v1.1.0` always names the same commit; orgs that require commit pinning can use its SHA.
 
 | input | | |
 |---|---|---|
@@ -91,7 +91,7 @@ Windows) and `sha256sum` or `shasum`. On Windows it runs in Git Bash, which has 
 ```yaml
 - name: install peachq
   run: |
-    q=$(curl -fsSL https://raw.githubusercontent.com/peachq-org/setup-peachq/v1.0.0/install.sh |
+    q=$(curl -fsSL https://raw.githubusercontent.com/peachq-org/setup-peachq/v1.1.0/install.sh |
       bash -s -- --version 0.92.20261116 --dir "$RUNNER_TEMP/peachq")
     echo "QCMD=$q" >> "$GITHUB_ENV"
 ```

@@ -11,7 +11,7 @@ die() { say "error: $*"; exit 1; }
 usage() {
   cat >&2 <<'EOF'
 usage: install.sh [--version V] [--dir D] [--duckdb]
-  V   0.92.20261116 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
+  V   0.92.20261120 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
   D   install directory (default ~/.peachq/<V>/<platform>[-duckdb])   env PEACHQ_INSTALL_DIR
   --duckdb  the build with DuckDB bundled (s) SQL, Parquet, s3://)    env PEACHQ_DUCKDB=true
 env PEACHQ_DIST_URL   download from https://peachq.org/file, or a mirror with its flat layout
@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $duckdb in true|false) ;; *) die "PEACHQ_DUCKDB is '$duckdb', not true or false" ;; esac
-[ -n "$version" ] || { usage; die "no version: pin one (e.g. --version 0.92.20261116) or say latest"; }
+[ -n "$version" ] || { usage; die "no version: pin one (e.g. --version 0.92.20261120) or say latest"; }
 
 platform() {
   case "$(uname -s)-$(uname -m)" in
@@ -103,7 +103,7 @@ elif [[ $version =~ $exact_re ]]; then
 elif [[ $version =~ $tag_re ]]; then
   urls=$(candidates "${BASH_REMATCH[1]}")
 else
-  die "version '$version' is not 0.92.20261116, v0.92 or latest"
+  die "version '$version' is not 0.92.20261120, v0.92 or latest"
 fi
 
 [ -n "$dir" ] || dir=$HOME/.peachq/$version/$plat$flavour

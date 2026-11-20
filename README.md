@@ -12,7 +12,7 @@ q project's checks. For a ready-made template that uses this action, see
 ```yaml
 - uses: peachq-org/setup-peachq@v1.2.0
   with:
-    version: 0.92.20261116
+    version: 0.92.20261120
 - run: $QCMD tests/run.q
 ```
 
@@ -20,7 +20,7 @@ Releases are immutable, so `v1.2.0` always names the same commit; orgs that requ
 
 | input | | |
 |---|---|---|
-| `version` | required | An exact build such as `0.92.20261116` (recommended), a release tag such as `v0.92`, or `latest`. There is no default, so the engine changes only when a commit changes it. |
+| `version` | required | An exact build such as `0.92.20261120` (recommended), a release tag such as `v0.92`, or `latest`. There is no default, so the engine changes only when a commit changes it. |
 | `dist-url` | optional | Download from `https://peachq.org/file`, or from your own mirror of it, instead of GitHub Releases (see below). |
 | `add-to-path` | optional, `false` | Also put peachq on `PATH` as `q`. Off by default, so no script that runs plain `q` mistakes peachq for another q. |
 | `duckdb` | optional, `false` | Install the build with DuckDB bundled, for `s)` SQL, Parquet, `s3://` and Kafka (see below). |
@@ -54,7 +54,7 @@ runner has.
 ```yaml
 - uses: peachq-org/setup-peachq@v1.2.0
   with:
-    version: 0.92.20261118
+    version: 0.92.20261120
     duckdb: true
 - run: $QCMD tests/run.q
 ```
@@ -75,8 +75,8 @@ all three shells. With `args`, the shim is `q` for bash and `q.cmd` for cmd and 
 
 ### Exact builds and release tags
 
-A version such as `0.92.20261116` names one build. The installer looks for a release tagged `v0.92.20261116` first,
-then for `v0.92`, and refuses to install unless the `q` it unpacked reports exactly `0.92.20261116`. If a release
+A version such as `0.92.20261120` names one build. The installer looks for a release tagged `v0.92.20261120` first,
+then for `v0.92`, and refuses to install unless the `q` it unpacked reports exactly `0.92.20261120`. If a release
 tag has since been rebuilt, the job fails and tells you which build the tag holds now. It never runs a different
 build without saying so. That is how `0.92.20261115`, which has no release of its own, installs from `v0.92`.
 
@@ -85,7 +85,7 @@ build without saying so. That is how `0.92.20261115`, which has no release of it
 You need no action and no installer: every build is a plain download. Releases are immutable, so the URL is the pin.
 
 ```sh
-curl -fsSL https://peachq.org/file/peachq-v0.92.20261116-linux-x86_64.tar.gz | tar -xz    # q, LICENSE, NOTICE, README.md
+curl -fsSL https://peachq.org/file/peachq-v0.92.20261120-linux-x86_64.tar.gz | tar -xz    # q, LICENSE, NOTICE, README.md
 ```
 
 The files are `https://peachq.org/file/peachq-v<VERSION>-<platform>.tar.gz` (`.zip` for Windows). The platforms are
@@ -93,7 +93,7 @@ The files are `https://peachq.org/file/peachq-v<VERSION>-<platform>.tar.gz` (`.z
 that the site says `darwin` where GitHub Releases say `macos`. The same works against GitHub Releases:
 
 ```sh
-curl -fsSL https://github.com/peachq-org/peachq/releases/download/v0.92.20261116/peachq-linux-x86_64.tar.gz | tar -xz
+curl -fsSL https://github.com/peachq-org/peachq/releases/download/v0.92.20261120/peachq-linux-x86_64.tar.gz | tar -xz
 ```
 
 **Latest.** `https://peachq.org/file/latest.json` names the newest build of each platform:
@@ -115,13 +115,13 @@ Windows) and `sha256sum` or `shasum`. On Windows it runs in Git Bash, which has 
 - name: install peachq
   run: |
     q=$(curl -fsSL https://raw.githubusercontent.com/peachq-org/setup-peachq/v1.2.0/install.sh |
-      bash -s -- --version 0.92.20261116 --dir "$RUNNER_TEMP/peachq")
+      bash -s -- --version 0.92.20261120 --dir "$RUNNER_TEMP/peachq")
     echo "QCMD=$q" >> "$GITHUB_ENV"
 ```
 
 ```text
 install.sh [--version V] [--dir D] [--duckdb]
-  V   0.92.20261116 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
+  V   0.92.20261120 (exact build), v0.92 (release tag) or latest       env PEACHQ_VERSION
   D   install directory (default ~/.peachq/<V>/<platform>[-duckdb])   env PEACHQ_INSTALL_DIR
   --duckdb  the build with DuckDB bundled (s) SQL, Parquet, s3://)    env PEACHQ_DUCKDB=true
 env PEACHQ_DIST_URL   download from https://peachq.org/file, or a mirror with its flat layout
@@ -137,8 +137,8 @@ GitHub Releases are the default. Set `dist-url` (or `PEACHQ_DIST_URL`) to `https
 the site instead. To use an internal artifact store, set it to a mirror with the site's flat layout:
 
 ```text
-https://artifacts.example.com/peachq/peachq-v0.92.20261116-linux-x86_64.tar.gz
-https://artifacts.example.com/peachq/peachq-v0.92.20261116-linux-x86_64.tar.gz.sha256
+https://artifacts.example.com/peachq/peachq-v0.92.20261120-linux-x86_64.tar.gz
+https://artifacts.example.com/peachq/peachq-v0.92.20261120-linux-x86_64.tar.gz.sha256
 https://artifacts.example.com/peachq/latest.json          # only if you want `latest`
 ```
 
